@@ -86,7 +86,7 @@ struct SettingsView: View {
                                         scheduleManager.save()
                                     }
                                 ), in: 1...60, step: 5) {
-                                    Text("\(scheduleManager.config.alertMinutesBeforeEnd) min", bundle: .module)
+                                    Text("\(scheduleManager.config.alertMinutesBeforeEnd) min")
                                         .font(DS.monoFont)
                                         .frame(width: 40, alignment: .trailing)
                                 }

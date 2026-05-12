@@ -33,8 +33,6 @@
 "Alerts" = "Alerts";
 "Alert sound" = "Alert sound";
 "Minutes before ending" = "Minutes before ending";
-"%lld min" = "%lld min";
-"min" = "min";
 "Data" = "Data";
 "Delete all data" = "Delete all data";
 "Delete all data?" = "Delete all data?";

@@ -13,7 +13,7 @@ struct TimerView: View {
             Text(formatTime(timerController.elapsedTime))
                 .font(.system(size: 40, weight: .light, design: .monospaced))
                 .foregroundStyle(timerController.isRunning ? .primary : .secondary)
-                .accessibilityLabel("Tiempo trabajado")
+                .accessibilityLabel(Text("Worked time", bundle: .module))
                 .accessibilityValue(formatTime(timerController.elapsedTime))
 
             ZStack {
@@ -28,7 +28,7 @@ struct TimerView: View {
                     )
                     .rotationEffect(.degrees(-90))
                     .animation(.linear(duration: 1), value: timerController.progress)
-                    .accessibilityLabel("Progreso de la jornada")
+                    .accessibilityLabel(Text("Daily progress", bundle: .module))
                     .accessibilityValue("\(Int(timerController.progress * 100))%")
 
                 VStack(spacing: 2) {
@@ -123,7 +123,7 @@ struct TimerView: View {
                         .font(.system(size: 11))
                 }
                 .buttonStyle(.borderless)
-                .help("Period editor")
+                .help(Text("Period editor", bundle: .module))
             }
 
             let todayEntry = timerController.currentTimeEntry ?? entryForTodayFromRepository()

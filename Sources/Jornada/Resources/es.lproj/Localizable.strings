@@ -33,13 +33,15 @@
 "Alerts" = "Alertas";
 "Alert sound" = "Sonido de alerta";
 "Minutes before ending" = "Minutos antes de finalizar";
-"%lld min" = "%lld min";
-"min" = "min";
 "Data" = "Datos";
 "Delete all data" = "Borrar todos los datos";
 "Delete all data?" = "¿Borrar todos los datos?";
 "Delete" = "Borrar";
 "This will permanently delete all work records. This action cannot be undone." = "Esta acción eliminará permanentemente todos los registros de jornada. No se puede deshacer.";
+
+/* Accessibility */
+"Worked time" = "Tiempo trabajado";
+"Daily progress" = "Progreso de la jornada";
 
 /* App */
 "Show window" = "Mostrar ventana";
