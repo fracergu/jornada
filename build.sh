@@ -12,41 +12,18 @@ echo "1/6 - Building in release mode..."
 cd "$(dirname "$0")"
 swift build -c release
 
-# 2. Generate ICNS icon if icon.png exists
-echo "2/6 - Generating icon..."
-if [ -f "icon.png" ]; then
-    mkdir -p AppIcon.iconset
-    sips -z 16 16 icon.png --out AppIcon.iconset/icon_16x16.png 2>/dev/null
-    sips -z 32 32 icon.png --out AppIcon.iconset/icon_16x16@2x.png 2>/dev/null
-    sips -z 32 32 icon.png --out AppIcon.iconset/icon_32x32.png 2>/dev/null
-    sips -z 64 64 icon.png --out AppIcon.iconset/icon_32x32@2x.png 2>/dev/null
-    sips -z 128 128 icon.png --out AppIcon.iconset/icon_128x128.png 2>/dev/null
-    sips -z 256 256 icon.png --out AppIcon.iconset/icon_128x128@2x.png 2>/dev/null
-    sips -z 256 256 icon.png --out AppIcon.iconset/icon_256x256.png 2>/dev/null
-    sips -z 512 512 icon.png --out AppIcon.iconset/icon_256x256@2x.png 2>/dev/null
-    sips -z 512 512 icon.png --out AppIcon.iconset/icon_512x512.png 2>/dev/null
-    sips -z 1024 1024 icon.png --out AppIcon.iconset/icon_512x512@2x.png 2>/dev/null
-    iconutil -c icns AppIcon.iconset
-    rm -rf AppIcon.iconset
-    echo "   ICNS icon generated"
-else
-    echo "   icon.png not found, using default icon"
-fi
-
-# 3. Update app bundle
-echo "3/6 - Updating app bundle..."
+# 2. Update app bundle
+echo "2/6 - Updating app bundle..."
 rm -rf build/Jornada.app
 mkdir -p build/Jornada.app/Contents/MacOS
 mkdir -p build/Jornada.app/Contents/Resources
 cp .build/release/Jornada build/Jornada.app/Contents/MacOS/Jornada
 
-# 4. Copy icon if exists
-if [ -f "AppIcon.icns" ]; then
-    cp AppIcon.icns build/Jornada.app/Contents/Resources/
-    echo "   Icon copied to bundle"
-fi
+# 3. Copy icon
+echo "3/6 - Copying icon..."
+cp AppIcon.icns build/Jornada.app/Contents/Resources/
 
-# 5. Configure Info.plist
+# 4. Configure Info.plist
 echo "4/6 - Configuring Info.plist..."
 cat > build/Jornada.app/Contents/Info.plist << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
