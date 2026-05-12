@@ -1,19 +1,19 @@
 #!/bin/bash
 
-# Script de compilación rápida para Jornada
-# Ejecuta: ./build.sh
+# Quick build script for Jornada
+# Run: ./build.sh
 
-set -e  # Salir si hay errores
+set -e
 
-echo "🔨 Compilando Jornada..."
+echo "🔨 Building Jornada..."
 
 # 1. Build release
-echo "1/6 - Compilando en modo release..."
+echo "1/6 - Building in release mode..."
 cd "$(dirname "$0")"
 swift build -c release
 
-# 2. Generar icono ICNS si existe icon.png
-echo "2/6 - Generando icono..."
+# 2. Generate ICNS icon if icon.png exists
+echo "2/6 - Generating icon..."
 if [ -f "icon.png" ]; then
     mkdir -p AppIcon.iconset
     sips -z 16 16 icon.png --out AppIcon.iconset/icon_16x16.png 2>/dev/null
@@ -28,33 +28,33 @@ if [ -f "icon.png" ]; then
     sips -z 1024 1024 icon.png --out AppIcon.iconset/icon_512x512@2x.png 2>/dev/null
     iconutil -c icns AppIcon.iconset
     rm -rf AppIcon.iconset
-    echo "   Icono ICNS generado"
+    echo "   ICNS icon generated"
 else
-    echo "   No se encontró icon.png, usando icono por defecto"
+    echo "   icon.png not found, using default icon"
 fi
 
-# 3. Actualizar app bundle
-echo "3/6 - Actualizando app bundle..."
+# 3. Update app bundle
+echo "3/6 - Updating app bundle..."
 rm -rf build/Jornada.app
 mkdir -p build/Jornada.app/Contents/MacOS
 mkdir -p build/Jornada.app/Contents/Resources
 cp .build/release/Jornada build/Jornada.app/Contents/MacOS/Jornada
 
-# 4. Copiar icono si existe
+# 4. Copy icon if exists
 if [ -f "AppIcon.icns" ]; then
     cp AppIcon.icns build/Jornada.app/Contents/Resources/
-    echo "   Icono copiado al bundle"
+    echo "   Icon copied to bundle"
 fi
 
-# 5. Configurar Info.plist
-echo "4/6 - Configurando Info.plist..."
+# 5. Configure Info.plist
+echo "4/6 - Configuring Info.plist..."
 cat > build/Jornada.app/Contents/Info.plist << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>CFBundleDevelopmentRegion</key>
-    <string>es</string>
+    <string>en</string>
     <key>CFBundleExecutable</key>
     <string>Jornada</string>
     <key>CFBundleIconFile</key>
@@ -68,9 +68,9 @@ cat > build/Jornada.app/Contents/Info.plist << 'EOF'
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.1.0</string>
+    <string>0.1.1</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>2</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>LSUIElement</key>
@@ -86,17 +86,16 @@ EOF
 echo -n "APPL????" > build/Jornada.app/Contents/PkgInfo
 
 # 5b. Code sign the app bundle
-echo "5/6 - Firmando el bundle..."
+echo "5/6 - Signing the bundle..."
 if [ -n "${CODE_SIGN_IDENTITY}" ]; then
     codesign --deep --force --verify --verbose --sign "${CODE_SIGN_IDENTITY}" --entitlements Sources/Jornada/Jornada.entitlements build/Jornada.app
 else
-    echo "   CODE_SIGN_IDENTITY no configurada, saltando firma"
-    # Aun así, reemplazar con firma ad-hoc para evitar cuarentena
+    echo "   CODE_SIGN_IDENTITY not set, skipping signature"
     codesign --deep --force --verify --verbose --sign - build/Jornada.app
 fi
 
-# 6. Actualizar DMG
-echo "6/6 - Creando DMG..."
+# 6. Create DMG
+echo "6/6 - Creating DMG..."
 rm -rf build/dmg-root
 mkdir -p build/dmg-root
 cp -R build/Jornada.app build/dmg-root/
@@ -105,13 +104,13 @@ hdiutil create -volname "Jornada" -srcfolder build/dmg-root -ov -format UDZO bui
 rm -rf build/dmg-root
 
 echo ""
-echo "✅ ¡Compilación completada!"
+echo "✅ Build complete!"
 echo ""
-echo "Artefactos:"
+echo "Artifacts:"
 echo "  - App:    build/Jornada.app"
 echo "  - DMG:    build/Jornada.dmg"
 echo ""
-echo "Para actualizar la app instalada:"
-echo "  1. Abre build/Jornada.dmg"
-echo "  2. Arrastra Jornada a Applications"
-echo "  3. Si macOS bloquea la app, ve a Ajustes > Seguridad y pulsa 'Abrir de todos modos'"
+echo "To update the installed app:"
+echo "  1. Open build/Jornada.dmg"
+echo "  2. Drag Jornada to Applications"
+echo "  3. If macOS blocks the app, go to System Settings > Privacy & Security and click 'Open Anyway'"

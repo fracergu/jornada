@@ -1,36 +1,36 @@
 # Jornada
 
-Menú bar app de control horario para macOS. Registra jornadas laborales por día con segmentos de tiempo, proyectos, y estadísticas semanales.
+macOS menu bar time tracker. Track your work sessions per day with time segments, projects, and weekly statistics.
 
-## Características
+## Features
 
-- **Temporizador** con control iniciar/detener y progreso visual
-- **Periodos por día** como segmentos independientes — cada "Iniciar" crea un tramo nuevo
-- **Proyectos por periodo** — cada segmento puede tener un proyecto distinto
-- **Editor semanal** — vista de 7 días para editar, añadir o borrar periodos manualmente
-- **Gráfico semanal** con barras trabajadas vs línea del horario programado
-- **Alertas configurables** con sonido al acercarse al fin de la jornada
-- **Horario semanal configurable** (horas por día, días laborables)
-- **Persistencia JSON atómica** — escritura temp → backup → main, con restauración automática desde backup
-- **Importar/Exportar CSV** para backup o migración
-- **Internacionalización** — español e inglés, con detección automática del idioma del sistema
-- **Accesibilidad** — etiquetas VoiceOver en temporizador, progreso y botones
-- **Validaciones** — solapamiento de periodos, fin posterior a inicio, cruce de medianoche
+- **Timer** with start/stop controls and visual progress ring
+- **Independent segments** — each "Start" creates a new work block, each "Stop" closes it
+- **Weekly editor** — 7-day view to add, edit, or delete time periods manually
+- **Projects per period** — each segment can have a different project
+- **Weekly chart** — bar chart showing worked hours vs scheduled hours
+- **Configurable alerts** — sound notification when approaching the end of your workday
+- **Configurable weekly schedule** — set hours per day per weekday
+- **Atomic JSON persistence** — writes via temp → backup → main with automatic backup recovery
+- **CSV import/export** — backup or data migration
+- **Internationalization** — English and Spanish, auto-detected from system language
+- **Accessibility** — VoiceOver labels on timer, progress ring, and action buttons
+- **Validation** — overlap detection, start-before-end enforcement, midnight crossing support
 
-## Requisitos
+## Requirements
 
 - macOS 14.0+
-- Swift 5.10+ (`swift build`) o Xcode 16+
+- Swift 5.10+ (`swift build`) or Xcode 16+
 
-## Instalación
+## Installation
 
-### Desde DMG
+### From DMG
 
-1. Descarga `Jornada.dmg` del [último release](https://github.com/fracergu/jornada/releases)
-2. Abre el DMG y arrastra Jornada a Applications
-3. La primera vez macOS puede bloquear la app: ve a Ajustes > Privacidad y seguridad y pulsa "Abrir de todos modos"
+1. Download `Jornada.dmg` from the [latest release](https://github.com/fracergu/jornada/releases)
+2. Open the DMG and drag Jornada to Applications
+3. If macOS blocks the app, go to System Settings > Privacy & Security and click "Open Anyway"
 
-### Desde código
+### From source
 
 ```bash
 git clone https://github.com/fracergu/jornada.git
@@ -39,26 +39,26 @@ swift build -c release
 ./build.sh
 ```
 
-## Uso
+## Usage
 
-### Control del temporizador
+### Timer controls
 
-- **Click izquierdo** en el icono de la barra de menú → abre el popover
-- **Click derecho** → menú contextual con Iniciar/Detener
-- **Iniciar** — comienza un nuevo segmento de trabajo
-- **Detener** — finaliza el segmento actual
-- Cada segmento es independiente: puedes iniciar y detener tantas veces como quieras
+- **Left click** the menu bar icon → opens the popover
+- **Right click** → context menu with Start/Stop
+- **Start** — begins a new work segment
+- **Stop** — ends the current segment
+- Each segment is independent: start and stop as many times as needed
 
-### Editor de periodos
+### Period editor
 
-Desde el popover principal, pulsa el icono de expandir (esquina superior derecha de "Periodos de hoy") para abrir el editor semanal. Aquí puedes:
+From the main popover, click the expand icon (top-right corner of "Today's periods") to open the weekly editor. Here you can:
 
-- Ver todos los días de la semana con sus periodos
-- Editar horas de inicio y fin de cada periodo
-- Añadir nuevos periodos con el botón `+`
-- Asignar proyecto a cada periodo
-- Borrar periodos completados con el botón ✗
-- Navegar entre semanas con las flechas
+- View all 7 days with their periods
+- Edit start and end times of each period
+- Add new periods with the `+` button
+- Assign a project to each period
+- Delete completed periods with the ✗ button
+- Navigate between weeks with the arrow buttons
 
 ## Tests
 
@@ -66,32 +66,8 @@ Desde el popover principal, pulsa el icono de expandir (esquina superior derecha
 swift test
 ```
 
-Ejecuta 11 tests unitarios del modelo de datos (WorkSegment, TimeEntry, ScheduleConfig, EntryRepository) usando swift-testing.
+Runs 11 unit tests covering WorkSegment, TimeEntry, ScheduleConfig, and EntryRepository using the swift-testing framework.
 
-## Estructura del proyecto
-
-```
-Sources/Jornada/
-├── Design/DS.swift              # Constantes de diseño (espaciado, fuentes, colores)
-├── Models/
-│   ├── TimeEntry.swift          # WorkSegment (hora/minuto con fecha base) y TimeEntry
-│   └── ScheduleConfig.swift     # Configuración de horario semanal
-├── Services/
-│   ├── EntryRepository.swift    # Protocolo EntryRepository + JSONFileRepository atómico
-│   ├── StorageService.swift     # Sólo utilidades CSV (import/export)
-│   └── AlertService.swift       # Lógica de alertas sonoras
-├── Managers/
-│   ├── TimerController.swift    # Máquina de estados del temporizador
-│   ├── EntryEditor.swift        # Edición de entradas históricas
-│   └── ScheduleManager.swift    # Gestión del horario semanal
-└── Views/
-    ├── MenuBarPopover.swift     # Punto de entrada con tabs
-    ├── TimerView.swift          # Temporizador + periodos de hoy
-    ├── PeriodEditorView.swift   # Editor semanal de periodos
-    ├── HistoryView.swift        # Gráfico semanal + import/export
-    └── SettingsView.swift       # Horario, alertas, borrar datos
-```
-
-## Licencia
+## License
 
 MIT
