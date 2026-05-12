@@ -1,0 +1,47 @@
+/* Timer */
+"Start" = "Iniciar";
+"Stop" = "Detener";
+"Expected end: %@" = "Fin previsto: %@";
+"Today's periods" = "Periodos de hoy";
+"No periods" = "Sin periodos";
+"now" = "ahora";
+"This week" = "Esta semana";
+"of %@" = "de %@";
+"Period editor" = "Editor de periodos";
+
+/* Period Editor */
+"Close" = "Cerrar";
+"today" = "hoy";
+"Project" = "Proyecto";
+"Start must be before end" = "El inicio debe ser anterior al fin";
+"Period overlaps with another" = "El periodo solapa con otro existente";
+
+/* History */
+"Weekly summary" = "Resumen semanal";
+"Worked" = "Trabajadas";
+"Scheduled" = "Programadas";
+"Difference" = "Diferencia";
+"Export CSV" = "Exportar CSV";
+"Import CSV" = "Importar CSV";
+"Export" = "Exportar";
+"Cancel" = "Cancelar";
+"From" = "Desde";
+"To" = "Hasta";
+
+/* Settings */
+"Weekly schedule" = "Horario semanal";
+"Alerts" = "Alertas";
+"Alert sound" = "Sonido de alerta";
+"Minutes before ending" = "Minutos antes de finalizar";
+"%lld min" = "%lld min";
+"min" = "min";
+"Data" = "Datos";
+"Delete all data" = "Borrar todos los datos";
+"Delete all data?" = "¿Borrar todos los datos?";
+"Delete" = "Borrar";
+"This will permanently delete all work records. This action cannot be undone." = "Esta acción eliminará permanentemente todos los registros de jornada. No se puede deshacer.";
+
+/* App */
+"Show window" = "Mostrar ventana";
+"Quit Jornada" = "Cerrar Jornada";
+"Jornada" = "Jornada";

@@ -2,7 +2,7 @@ import SwiftUI
 import Charts
 
 struct HistoryView: View {
-    @EnvironmentObject var timerManager: TimerManager
+    @EnvironmentObject var timerController: TimerController
     @EnvironmentObject var scheduleManager: ScheduleManager
     @State private var exportStartDate = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
     @State private var exportEndDate = Date()
@@ -17,14 +17,14 @@ struct HistoryView: View {
     }
 
     private var weekData: [DayData] {
-        _ = timerManager.revision
+        _ = timerController.revision
         let calendar = Calendar.current
         let now = Date()
         guard let weekInterval = calendar.dateInterval(of: .weekOfYear, for: now) else { return [] }
 
-        let entries = timerManager.currentWeekEntries()
+        let entries = timerController.currentWeekEntries()
         let dayFormatter = DateFormatter()
-        dayFormatter.locale = Locale(identifier: "es_ES")
+        dayFormatter.locale = Locale.current
         dayFormatter.dateFormat = "EEE"
 
         return (0..<7).compactMap { dayOffset in
@@ -41,7 +41,7 @@ struct HistoryView: View {
         VStack(alignment: .leading, spacing: DS.sectionSpacing) {
             Spacer().frame(height: 4)
 
-            DS.sectionHeader("Resumen semanal")
+            DS.sectionHeader("Weekly summary")
                 .padding(.horizontal, DS.hPadding)
 
             Chart(weekData) { day in
@@ -63,35 +63,41 @@ struct HistoryView: View {
             .frame(height: 190)
             .padding(.horizontal, DS.hPadding)
 
-            // Stats card
             let totalWorked = weekData.reduce(0) { $0 + $1.workedHours }
             let totalScheduled = weekData.reduce(0) { $0 + $1.scheduledHours }
             let difference = totalWorked - totalScheduled
 
             HStack(spacing: 0) {
-                statItem(label: "Trabajadas", value: String(format: "%.1fh", totalWorked), color: .primary)
+                statItem(label: String(localized: "Worked", bundle: .module), value: String(format: "%.1fh", totalWorked), color: .primary)
                 Divider().frame(height: 32)
-                statItem(label: "Programadas", value: String(format: "%.1fh", totalScheduled), color: .primary)
+                statItem(label: String(localized: "Scheduled", bundle: .module), value: String(format: "%.1fh", totalScheduled), color: .primary)
                 Divider().frame(height: 32)
-                statItem(label: "Diferencia", value: String(format: "%+.1fh", difference), color: difference >= 0 ? .green : .red)
+                statItem(label: String(localized: "Difference", bundle: .module), value: String(format: "%+.1fh", difference), color: difference >= 0 ? .green : .red)
             }
             .padding(.vertical, 10)
             .background(DS.cardBackground)
             .cornerRadius(DS.cornerRadius)
             .padding(.horizontal, DS.hPadding)
 
-            // Import/Export
             HStack(spacing: 12) {
                 Button(action: { showingExportPanel = true }) {
-                    Label("Exportar CSV", systemImage: "square.and.arrow.up")
-                        .font(.system(size: 12))
+                    Label {
+                        Text("Export CSV", bundle: .module)
+                    } icon: {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .font(.system(size: 12))
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
 
                 Button(action: importCSV) {
-                    Label("Importar CSV", systemImage: "square.and.arrow.down")
-                        .font(.system(size: 12))
+                    Label {
+                        Text("Import CSV", bundle: .module)
+                    } icon: {
+                        Image(systemName: "square.and.arrow.down")
+                    }
+                    .font(.system(size: 12))
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
@@ -101,12 +107,12 @@ struct HistoryView: View {
         }
         .sheet(isPresented: $showingExportPanel) {
             VStack(spacing: 16) {
-                Text("Exportar CSV").font(.headline)
-                DatePicker("Desde", selection: $exportStartDate, displayedComponents: .date)
-                DatePicker("Hasta", selection: $exportEndDate, displayedComponents: .date)
+                Text("Export CSV", bundle: .module).font(.headline)
+                DatePicker(selection: $exportStartDate, displayedComponents: .date) { Text("From", bundle: .module) }
+                DatePicker(selection: $exportEndDate, displayedComponents: .date) { Text("To", bundle: .module) }
                 HStack {
-                    Button("Cancelar") { showingExportPanel = false }.keyboardShortcut(.cancelAction)
-                    Button("Exportar") { exportCSV(); showingExportPanel = false }.keyboardShortcut(.defaultAction)
+                    Button { showingExportPanel = false } label: { Text("Cancel", bundle: .module) }.keyboardShortcut(.cancelAction)
+                    Button { exportCSV(); showingExportPanel = false } label: { Text("Export", bundle: .module) }.keyboardShortcut(.defaultAction)
                 }
             }
             .padding()
@@ -131,7 +137,8 @@ struct HistoryView: View {
                 let calendar = Calendar.current
                 let startDay = calendar.startOfDay(for: exportStartDate)
                 let endDay = calendar.startOfDay(for: exportEndDate)
-                let filtered = StorageService.shared.loadAll().filter { entry in
+                let allEntries = timerController.repository?.loadAll() ?? []
+                let filtered = allEntries.filter { entry in
                     let entryDay = calendar.startOfDay(for: entry.date)
                     return entryDay >= startDay && entryDay <= endDay
                 }
@@ -146,7 +153,7 @@ struct HistoryView: View {
         panel.begin { response in
             if response == .OK, let url = panel.url {
                 if let imported = StorageService.shared.importCSV(from: url) {
-                    var existing = StorageService.shared.loadAll()
+                    var existing = timerController.repository?.loadAll() ?? []
                     for entry in imported {
                         if let idx = existing.firstIndex(where: { Calendar.current.isDate($0.date, inSameDayAs: entry.date) }) {
                             existing[idx] = entry
@@ -154,8 +161,8 @@ struct HistoryView: View {
                             existing.append(entry)
                         }
                     }
-                    StorageService.shared.saveAll(existing)
-                    timerManager.loadToday()
+                    timerController.repository?.saveAll(existing)
+                    timerController.loadToday()
                 }
             }
         }

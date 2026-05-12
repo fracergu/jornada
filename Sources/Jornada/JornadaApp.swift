@@ -10,7 +10,7 @@ struct JornadaApp: App {
         Settings {
             SettingsView()
                 .environmentObject(appDelegate.scheduleManager)
-                .environmentObject(appDelegate.timerManager)
+                .environmentObject(appDelegate.timerController)
         }
     }
 }
@@ -21,15 +21,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var popover: NSPopover!
     var contextMenu: NSMenu!
 
-    let timerManager = TimerManager()
+    let timerController = TimerController()
+    let entryEditor = EntryEditor()
     let scheduleManager = ScheduleManager()
+    let alertService = AlertService()
+    let repository: EntryRepository
 
     private var cancellables = Set<AnyCancellable>()
 
-    func applicationDidFinishLaunching(_ notification: Notification) {
-        timerManager.scheduleManager = scheduleManager
+    override init() {
+        repository = JSONFileRepository.shared
+        super.init()
 
-        timerManager.loadToday()
+        timerController.repository = repository
+        timerController.scheduleManager = scheduleManager
+        timerController.alertService = alertService
+
+        entryEditor.repository = repository
+        entryEditor.timerController = timerController
+        entryEditor.scheduleManager = scheduleManager
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        timerController.loadToday()
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
@@ -44,12 +58,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         contextMenu.delegate = self
 
         popover = NSPopover()
-        popover.contentSize = NSSize(width: 360, height: 480)
+        popover.contentSize = NSSize(width: 360, height: 560)
         popover.behavior = .transient
         popover.animates = true
         popover.contentViewController = NSHostingController(
             rootView: MenuBarPopover()
-                .environmentObject(timerManager)
+                .environmentObject(timerController)
+                .environmentObject(entryEditor)
                 .environmentObject(scheduleManager)
         )
 
@@ -93,67 +108,51 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func updateContextMenu() {
         contextMenu.removeAllItems()
 
-        if timerManager.isRunning {
+        if timerController.isRunning {
             let stopItem = NSMenuItem(
-                title: "Detener",
+                title: String(localized: "Stop", bundle: .module),
                 action: #selector(stopTimer),
                 keyEquivalent: "d"
             )
-            stopItem.image = NSImage(systemSymbolName: "stop.fill", accessibilityDescription: "Detener")
+            stopItem.image = NSImage(systemSymbolName: "stop.fill", accessibilityDescription: String(localized: "Stop", bundle: .module))
             contextMenu.addItem(stopItem)
         } else {
             let startItem = NSMenuItem(
-                title: "Iniciar",
-                action: #selector(startOrResumeTimer),
+                title: String(localized: "Start", bundle: .module),
+                action: #selector(startTimer),
                 keyEquivalent: "s"
             )
-            startItem.image = NSImage(systemSymbolName: "play.fill", accessibilityDescription: "Iniciar")
+            startItem.image = NSImage(systemSymbolName: "play.fill", accessibilityDescription: String(localized: "Start", bundle: .module))
             contextMenu.addItem(startItem)
         }
 
         contextMenu.addItem(NSMenuItem.separator())
 
         let showItem = NSMenuItem(
-            title: "Mostrar ventana",
+            title: String(localized: "Show window", bundle: .module),
             action: #selector(showPopover),
             keyEquivalent: "w"
         )
-        showItem.image = NSImage(systemSymbolName: "window", accessibilityDescription: "Mostrar ventana")
+        showItem.image = NSImage(systemSymbolName: "window", accessibilityDescription: String(localized: "Show window", bundle: .module))
         contextMenu.addItem(showItem)
 
         contextMenu.addItem(NSMenuItem.separator())
 
         let quitItem = NSMenuItem(
-            title: "Cerrar Jornada",
+            title: String(localized: "Quit Jornada", bundle: .module),
             action: #selector(quitApp),
             keyEquivalent: "q"
         )
-        quitItem.image = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: "Cerrar aplicación")
+        quitItem.image = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: String(localized: "Quit Jornada", bundle: .module))
         contextMenu.addItem(quitItem)
     }
 
     @objc func startTimer() {
-        timerManager.startSession()
-    }
-
-    @objc func pauseTimer() {
-        timerManager.pauseSession()
-    }
-
-    @objc func resumeTimer() {
-        timerManager.resumeSession()
-    }
-
-    @objc func startOrResumeTimer() {
-        if timerManager.currentTimeEntry != nil {
-            timerManager.resumeSession()
-        } else {
-            timerManager.startSession()
-        }
+        timerController.startSession()
     }
 
     @objc func stopTimer() {
-        timerManager.stopSession()
+        timerController.stopSession()
     }
 
     @objc func showPopover() {
@@ -171,9 +170,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let button = statusItem.button else { return }
 
         let total: TimeInterval
-        if timerManager.isRunning {
-            total = timerManager.elapsedTime
-        } else if let entry = timerManager.currentTimeEntry {
+        if timerController.isRunning {
+            total = timerController.elapsedTime
+        } else if let entry = timerController.currentTimeEntry {
             total = entry.totalWorkedSeconds
         } else {
             button.title = ""

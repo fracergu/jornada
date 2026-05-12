@@ -1,5 +1,8 @@
 import Foundation
 
+// Legacy storage utility. Kept for CSV import/export only.
+// All regular persistence is handled by JSONFileRepository.
+@MainActor
 class StorageService {
     static let shared = StorageService()
 
@@ -16,78 +19,9 @@ class StorageService {
         return d
     }()
 
-    private var storageDirectory: URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let dir = appSupport.appendingPathComponent("Jornada")
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir
-    }
-
-    private var entriesURL: URL {
-        storageDirectory.appendingPathComponent("entries.json")
-    }
-
-    private var csvURL: URL {
-        storageDirectory.appendingPathComponent("entries.csv")
-    }
-
-    private var entries: [TimeEntry] = []
-
-    init() {
-        entries = loadFromDisk()
-        migrateCSVIfNeeded()
-    }
-
-    // MARK: - Public API
-
-    func loadAll() -> [TimeEntry] {
-        return entries
-    }
-
-    func save(_ entry: TimeEntry) {
-        if let index = entries.firstIndex(where: { $0.id == entry.id }) {
-            entries[index] = entry
-        } else {
-            entries.append(entry)
-        }
-        saveToDisk()
-    }
-
-    func saveAll(_ newEntries: [TimeEntry]) {
-        entries = newEntries
-        saveToDisk()
-    }
-
-    func delete(_ entry: TimeEntry) {
-        entries.removeAll { $0.id == entry.id }
-        saveToDisk()
-    }
-
-    func deleteAllData() {
-        entries = []
-        saveToDisk()
-        try? FileManager.default.removeItem(at: entriesURL)
-    }
-
-    func getEntry(for date: Date) -> TimeEntry? {
-        let dayStart = Calendar.current.startOfDay(for: date)
-        return entries.first { Calendar.current.isDate($0.date, inSameDayAs: dayStart) }
-    }
-
     func saveAll(_ entriesToExport: [TimeEntry], to url: URL) {
         let csv = generateCSV(entriesToExport)
         try? csv.write(to: url, atomically: true, encoding: .utf8)
-    }
-
-    func exportCSV(to url: URL) -> Bool {
-        let csv = generateCSV(entries)
-        do {
-            try csv.write(to: url, atomically: true, encoding: .utf8)
-            return true
-        } catch {
-            print("StorageService: Export failed - \(error)")
-            return false
-        }
     }
 
     func importCSV(from url: URL) -> [TimeEntry]? {
@@ -97,50 +31,6 @@ class StorageService {
         }
         let imported = parseCSV(content)
         return imported.isEmpty && !content.contains("id") ? nil : imported
-    }
-
-    // MARK: - Disk I/O
-
-    private func loadFromDisk() -> [TimeEntry] {
-        guard FileManager.default.fileExists(atPath: entriesURL.path),
-              let data = FileManager.default.contents(atPath: entriesURL.path) else {
-            return []
-        }
-        return (try? decoder.decode([TimeEntry].self, from: data)) ?? []
-    }
-
-    private func saveToDisk() {
-        guard let data = try? encoder.encode(entries) else {
-            print("StorageService: Failed to encode entries")
-            return
-        }
-        do {
-            try data.write(to: entriesURL, options: .atomic)
-        } catch {
-            print("StorageService: Failed to write - \(error)")
-        }
-    }
-
-    // MARK: - CSV Migration
-
-    private func migrateCSVIfNeeded() {
-        guard FileManager.default.fileExists(atPath: csvURL.path) else { return }
-        guard entries.isEmpty else {
-            try? FileManager.default.removeItem(at: csvURL)
-            return
-        }
-
-        guard let csvData = FileManager.default.contents(atPath: csvURL.path),
-              let csvContent = String(data: csvData, encoding: .utf8) else { return }
-
-        let imported = parseCSV(csvContent)
-        if !imported.isEmpty {
-            entries = imported
-            saveToDisk()
-        }
-
-        let backupURL = storageDirectory.appendingPathComponent("entries.csv.bak")
-        try? FileManager.default.moveItem(at: csvURL, to: backupURL)
     }
 
     // MARK: - CSV Helpers

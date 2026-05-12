@@ -16,10 +16,11 @@ enum DS {
     static let tertiaryColor = Color.secondary.opacity(0.5)
     static let cardBackground = Color(NSColor.controlBackgroundColor)
 
-    static func sectionHeader(_ text: String) -> some View {
-        Text(text.uppercased())
+    static func sectionHeader(_ key: LocalizedStringKey) -> some View {
+        Text(key, bundle: .module)
             .font(sectionFont)
             .foregroundStyle(secondaryColor)
             .tracking(0.5)
+            .textCase(.uppercase)
     }
 }

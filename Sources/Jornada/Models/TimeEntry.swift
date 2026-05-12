@@ -2,14 +2,24 @@ import Foundation
 
 struct WorkSegment: Codable, Identifiable, Equatable {
     let id: UUID
-    var startHour: Int      // 0-23
-    var startMinute: Int    // 0-59
-    var endHour: Int?       // nil = activo
-    var endMinute: Int?     // nil = activo
+    let date: Date
+    var startHour: Int
+    var startMinute: Int
+    var endHour: Int?
+    var endMinute: Int?
     var project: String
 
-    init(id: UUID = UUID(), startHour: Int, startMinute: Int, endHour: Int? = nil, endMinute: Int? = nil, project: String = "") {
+    init(
+        id: UUID = UUID(),
+        date: Date = Calendar.current.startOfDay(for: Date()),
+        startHour: Int,
+        startMinute: Int,
+        endHour: Int? = nil,
+        endMinute: Int? = nil,
+        project: String = ""
+    ) {
         self.id = id
+        self.date = Calendar.current.startOfDay(for: date)
         self.startHour = startHour
         self.startMinute = startMinute
         self.endHour = endHour
@@ -17,56 +27,67 @@ struct WorkSegment: Codable, Identifiable, Equatable {
         self.project = project
     }
 
-    // Duration calculada desde hour/minute
-    var duration: TimeInterval {
-        let now = Date()
-        let cal = Calendar.current
-        let nowMinutes = cal.component(.hour, from: now) * 60 + cal.component(.minute, from: now)
-        let startMinutes = startHour * 60 + startMinute
-        guard startMinutes < nowMinutes else { return 0 }
+    private var startDate: Date {
+        Calendar.current.date(bySettingHour: startHour, minute: startMinute, second: 0, of: date) ?? date
+    }
 
-        guard let eh = endHour, let em = endMinute else {
-            let nowS = cal.component(.second, from: now)
-            return TimeInterval((nowMinutes * 60 + nowS) - (startMinutes * 60))
+    private var resolvedEndDate: Date? {
+        guard let eh = endHour, let em = endMinute else { return nil }
+        var d = Calendar.current.date(bySettingHour: eh, minute: em, second: 0, of: date) ?? date
+        if d <= startDate {
+            d = Calendar.current.date(byAdding: .day, value: 1, to: d) ?? d
         }
-        return TimeInterval((eh * 60 + em) - (startMinutes))
+        return d
+    }
+
+    var duration: TimeInterval {
+        if let end = resolvedEndDate {
+            return end.timeIntervalSince(startDate)
+        }
+        return Date().timeIntervalSince(startDate)
     }
 
     var isCompleted: Bool {
         endHour != nil && endMinute != nil
     }
 
-    // Convertir a Date para DatePicker bindings
-    func startDate(on date: Date) -> Date {
-        Calendar.current.date(bySettingHour: startHour, minute: startMinute, second: 0, of: date) ?? date
-    }
-
-    func endDate(on date: Date) -> Date? {
-        guard let eh = endHour, let em = endMinute else { return nil }
-        return Calendar.current.date(bySettingHour: eh, minute: em, second: 0, of: date) ?? date
-    }
-
-    // Crear desde DatePicker
-    static func fromStart(_ date: Date) -> WorkSegment {
-        let cal = Calendar.current
-        return WorkSegment(
-            startHour: cal.component(.hour, from: date),
-            startMinute: cal.component(.minute, from: date)
-        )
-    }
-
-    // Validar que end > start
     var isValid: Bool {
-        guard let eh = endHour, let em = endMinute else { return true }
-        return (eh * 60 + em) > (startHour * 60 + startMinute)
+        guard let end = resolvedEndDate else { return true }
+        return end > startDate
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, date, startHour, startMinute, endHour, endMinute, project
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        date = try container.decodeIfPresent(Date.self, forKey: .date) ?? Calendar.current.startOfDay(for: Date())
+        startHour = try container.decode(Int.self, forKey: .startHour)
+        startMinute = try container.decode(Int.self, forKey: .startMinute)
+        endHour = try container.decodeIfPresent(Int.self, forKey: .endHour)
+        endMinute = try container.decodeIfPresent(Int.self, forKey: .endMinute)
+        project = try container.decodeIfPresent(String.self, forKey: .project) ?? ""
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(date, forKey: .date)
+        try container.encode(startHour, forKey: .startHour)
+        try container.encode(startMinute, forKey: .startMinute)
+        try container.encodeIfPresent(endHour, forKey: .endHour)
+        try container.encodeIfPresent(endMinute, forKey: .endMinute)
+        try container.encode(project, forKey: .project)
     }
 }
 
 struct TimeEntry: Codable, Identifiable, Equatable {
     let id: UUID
-    let date: Date                // Normalizado a startOfDay, solo para day-bucket
-    var startTime: Date           // Timestamp del primer inicio (para referencia)
-    var segments: [WorkSegment]   // Tiempos como hour/minute
+    let date: Date
+    var startTime: Date
+    var segments: [WorkSegment]
     var scheduledSeconds: TimeInterval
     var notes: String
     var project: String
@@ -103,14 +124,6 @@ struct TimeEntry: Codable, Identifiable, Equatable {
         return min(totalWorkedSeconds / scheduledSeconds, 1.0)
     }
 
-    func formattedDuration() -> String {
-        let total = Int(totalWorkedSeconds)
-        let hours = total / 3600
-        let minutes = (total % 3600) / 60
-        let seconds = total % 60
-        return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
-    }
-
     func hasOverlap(startHour: Int, startMinute: Int, endHour: Int, endMinute: Int, excludingSegmentId: UUID? = nil) -> Bool {
         let startMins = startHour * 60 + startMinute
         let endMins = endHour * 60 + endMinute
@@ -136,11 +149,62 @@ struct TimeEntry: Codable, Identifiable, Equatable {
         }
     }
 
+    // MARK: - Validation
+
+    enum SegmentEditError: Error, Equatable {
+        case endBeforeStart
+        case overlapsExisting
+        case segmentNotFound
+    }
+
+    mutating func validateAndUpdateSegmentStart(segmentId: UUID, hour: Int, minute: Int) throws {
+        guard let index = segments.firstIndex(where: { $0.id == segmentId }) else {
+            throw SegmentEditError.segmentNotFound
+        }
+        let segment = segments[index]
+        if segment.isCompleted {
+            guard let endH = segment.endHour, let endM = segment.endMinute else { return }
+            guard (hour * 60 + minute) < (endH * 60 + endM) else { throw SegmentEditError.endBeforeStart }
+            guard !hasOverlap(startHour: hour, startMinute: minute, endHour: endH, endMinute: endM, excludingSegmentId: segment.id) else { throw SegmentEditError.overlapsExisting }
+        } else {
+            guard !hasOverlap(startHour: hour, startMinute: minute, endHour: 23, endMinute: 59, excludingSegmentId: segment.id) else { throw SegmentEditError.overlapsExisting }
+        }
+        segments[index] = WorkSegment(
+            id: segment.id,
+            date: segment.date,
+            startHour: hour,
+            startMinute: minute,
+            endHour: segment.endHour,
+            endMinute: segment.endMinute,
+            project: segment.project
+        )
+    }
+
+    mutating func validateAndUpdateSegmentEnd(segmentId: UUID, hour: Int, minute: Int) throws {
+        guard let index = segments.firstIndex(where: { $0.id == segmentId }) else {
+            throw SegmentEditError.segmentNotFound
+        }
+        let segment = segments[index]
+        guard segment.isCompleted else { return }
+        guard (hour * 60 + minute) > (segment.startHour * 60 + segment.startMinute) else { throw SegmentEditError.endBeforeStart }
+        guard !hasOverlap(startHour: segment.startHour, startMinute: segment.startMinute, endHour: hour, endMinute: minute, excludingSegmentId: segment.id) else { throw SegmentEditError.overlapsExisting }
+        segments[index] = WorkSegment(
+            id: segment.id,
+            date: segment.date,
+            startHour: segment.startHour,
+            startMinute: segment.startMinute,
+            endHour: hour,
+            endMinute: minute,
+            project: segment.project
+        )
+    }
+
     mutating func startSegment() {
         if !isActive {
             let now = Date()
             let cal = Calendar.current
             segments.append(WorkSegment(
+                date: date,
                 startHour: cal.component(.hour, from: now),
                 startMinute: cal.component(.minute, from: now)
             ))

@@ -63,17 +63,10 @@ class ScheduleConfig: ObservableObject, Codable {
         ScheduleConfig()
     }
 
-    static let weekdayNames: [Int: String] = [
-        1: "Sunday",
-        2: "Monday",
-        3: "Tuesday",
-        4: "Wednesday",
-        5: "Thursday",
-        6: "Friday",
-        7: "Saturday",
-    ]
-
     static func weekdayName(for weekday: Int) -> String {
-        weekdayNames[weekday] ?? ""
+        let symbols = Calendar.current.standaloneWeekdaySymbols
+        let index = weekday - 1
+        guard index >= 0, index < symbols.count else { return "" }
+        return symbols[index]
     }
 }

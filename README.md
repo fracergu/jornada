@@ -4,21 +4,23 @@ Menú bar app de control horario para macOS. Registra jornadas laborales por dí
 
 ## Características
 
-- **Temporizador** con control iniciar/pausar/reanudar y progreso visual
-- **Periodos por día** almacenados como componentes hora/minuto (sin problemas de timezone)
+- **Temporizador** con control iniciar/detener y progreso visual
+- **Periodos por día** como segmentos independientes — cada "Iniciar" crea un tramo nuevo
 - **Proyectos por periodo** — cada segmento puede tener un proyecto distinto
 - **Editor semanal** — vista de 7 días para editar, añadir o borrar periodos manualmente
 - **Gráfico semanal** con barras trabajadas vs línea del horario programado
 - **Alertas configurables** con sonido al acercarse al fin de la jornada
 - **Horario semanal configurable** (horas por día, días laborables)
-- **Persistencia en JSON** — datos almacenados en `~/Library/Application Support/Jornada/entries.json`
+- **Persistencia JSON atómica** — escritura temp → backup → main, con restauración automática desde backup
 - **Importar/Exportar CSV** para backup o migración
-- **Validaciones** — solapamiento de periodos, fin posterior a inicio, duración futura = 0
+- **Internacionalización** — español e inglés, con detección automática del idioma del sistema
+- **Accesibilidad** — etiquetas VoiceOver en temporizador, progreso y botones
+- **Validaciones** — solapamiento de periodos, fin posterior a inicio, cruce de medianoche
 
 ## Requisitos
 
 - macOS 14.0+
-- Xcode 15+ o Swift 5.9+ (`swift build`)
+- Swift 5.10+ (`swift build`) o Xcode 16+
 
 ## Instalación
 
@@ -43,10 +45,9 @@ swift build -c release
 
 - **Click izquierdo** en el icono de la barra de menú → abre el popover
 - **Click derecho** → menú contextual con Iniciar/Detener
-- **Iniciar** — comienza un nuevo periodo
-- **Pausar** — detiene el periodo actual (el tiempo cuenta hasta el momento de pausa)
-- **Reanudar** — continúa el periodo anterior
-- **Finalizar** — detiene el periodo y no permite reanudar sin crear uno nuevo
+- **Iniciar** — comienza un nuevo segmento de trabajo
+- **Detener** — finaliza el segmento actual
+- Cada segmento es independiente: puedes iniciar y detener tantas veces como quieras
 
 ### Editor de periodos
 
@@ -56,12 +57,16 @@ Desde el popover principal, pulsa el icono de expandir (esquina superior derecha
 - Editar horas de inicio y fin de cada periodo
 - Añadir nuevos periodos con el botón `+`
 - Asignar proyecto a cada periodo
-- Borrar periodos con el botón ✗
+- Borrar periodos completados con el botón ✗
 - Navegar entre semanas con las flechas
 
-### Gestión de periodos futuros
+## Tests
 
-Puedes añadir periodos en el futuro (ej: una reunión prevista a las 15:00). Cuando el temporizador real alcance ese horario y se detenga, el periodo futuro que solape con el tramo real se eliminará automáticamente para evitar duplicidad.
+```bash
+swift test
+```
+
+Ejecuta 11 tests unitarios del modelo de datos (WorkSegment, TimeEntry, ScheduleConfig, EntryRepository) usando swift-testing.
 
 ## Estructura del proyecto
 
@@ -69,13 +74,16 @@ Puedes añadir periodos en el futuro (ej: una reunión prevista a las 15:00). Cu
 Sources/Jornada/
 ├── Design/DS.swift              # Constantes de diseño (espaciado, fuentes, colores)
 ├── Models/
-│   ├── TimeEntry.swift          # WorkSegment (hora/minuto) y TimeEntry
+│   ├── TimeEntry.swift          # WorkSegment (hora/minuto con fecha base) y TimeEntry
 │   └── ScheduleConfig.swift     # Configuración de horario semanal
 ├── Services/
-│   └── StorageService.swift     # Persistencia JSON + import/export CSV
+│   ├── EntryRepository.swift    # Protocolo EntryRepository + JSONFileRepository atómico
+│   ├── StorageService.swift     # Sólo utilidades CSV (import/export)
+│   └── AlertService.swift       # Lógica de alertas sonoras
 ├── Managers/
-│   ├── TimerManager.swift       # Lógica del temporizador y edición
-│   └── ScheduleManager.swift    # Gestión del horario
+│   ├── TimerController.swift    # Máquina de estados del temporizador
+│   ├── EntryEditor.swift        # Edición de entradas históricas
+│   └── ScheduleManager.swift    # Gestión del horario semanal
 └── Views/
     ├── MenuBarPopover.swift     # Punto de entrada con tabs
     ├── TimerView.swift          # Temporizador + periodos de hoy

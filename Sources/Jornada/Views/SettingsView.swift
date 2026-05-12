@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var scheduleManager: ScheduleManager
-    @EnvironmentObject var timerManager: TimerManager
+    @EnvironmentObject var timerController: TimerController
     @State private var showingDeleteConfirmation = false
 
     let weekdays = [2, 3, 4, 5, 6, 7, 1]
@@ -13,9 +13,8 @@ struct SettingsView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: DS.sectionSpacing + 4) {
-                    // Schedule section
                     VStack(alignment: .leading, spacing: 4) {
-                        DS.sectionHeader("Horario semanal")
+                        DS.sectionHeader("Weekly schedule")
                             .padding(.horizontal, DS.hPadding)
 
                         VStack(spacing: 0) {
@@ -54,20 +53,21 @@ struct SettingsView: View {
                     }
                     .padding(.horizontal, DS.hPadding)
 
-                    // Alerts section
                     VStack(alignment: .leading, spacing: 4) {
-                        DS.sectionHeader("Alertas")
+                        DS.sectionHeader("Alerts")
                             .padding(.horizontal, DS.hPadding)
 
                         VStack(spacing: 0) {
-                            Toggle("Sonido de alerta", isOn: Binding(
+                            Toggle(isOn: Binding(
                                 get: { scheduleManager.config.alertSoundEnabled },
                                 set: {
                                     scheduleManager.objectWillChange.send()
                                     scheduleManager.config.alertSoundEnabled = $0
                                     scheduleManager.save()
                                 }
-                            ))
+                            )) {
+                                Text("Alert sound", bundle: .module)
+                            }
                             .font(.system(size: 12))
                             .padding(.horizontal, DS.hPadding)
                             .padding(.vertical, 10)
@@ -75,7 +75,7 @@ struct SettingsView: View {
                             Divider().padding(.leading, DS.hPadding)
 
                             HStack {
-                                Text("Minutos antes de finalizar")
+                                Text("Minutes before ending", bundle: .module)
                                     .font(.system(size: 12))
                                 Spacer()
                                 Stepper(value: Binding(
@@ -86,7 +86,7 @@ struct SettingsView: View {
                                         scheduleManager.save()
                                     }
                                 ), in: 1...60, step: 5) {
-                                    Text("\(scheduleManager.config.alertMinutesBeforeEnd) min")
+                                    Text("\(scheduleManager.config.alertMinutesBeforeEnd) min", bundle: .module)
                                         .font(DS.monoFont)
                                         .frame(width: 40, alignment: .trailing)
                                 }
@@ -99,19 +99,22 @@ struct SettingsView: View {
                     }
                     .padding(.horizontal, DS.hPadding)
 
-                    // Danger zone
                     VStack(alignment: .leading, spacing: 4) {
-                        DS.sectionHeader("Datos")
+                        DS.sectionHeader("Data")
                             .padding(.horizontal, DS.hPadding)
 
                         VStack(spacing: 0) {
                             Button(role: .destructive) {
                                 showingDeleteConfirmation = true
                             } label: {
-                                Label("Borrar todos los datos", systemImage: "trash.fill")
-                                    .font(.system(size: 12))
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 6)
+                                Label {
+                                    Text("Delete all data", bundle: .module)
+                                } icon: {
+                                    Image(systemName: "trash.fill")
+                                }
+                                .font(.system(size: 12))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 6)
                             }
                             .buttonStyle(.bordered)
                             .tint(.red)
@@ -125,18 +128,18 @@ struct SettingsView: View {
                 .padding(.bottom, 16)
             }
         }
-        .alert("¿Borrar todos los datos?", isPresented: $showingDeleteConfirmation) {
-            Button("Cancelar", role: .cancel) {}
-            Button("Borrar", role: .destructive) {
-                StorageService.shared.deleteAllData()
-                timerManager.currentTimeEntry = nil
-                timerManager.isRunning = false
-                timerManager.elapsedTime = 0
-                timerManager.remainingTime = scheduleManager.scheduledSeconds(for: Date())
-                timerManager.progress = 0
-            }
+        .alert(Text("Delete all data?", bundle: .module), isPresented: $showingDeleteConfirmation) {
+            Button(role: .cancel) {} label: { Text("Cancel", bundle: .module) }
+            Button(role: .destructive) {
+                timerController.repository?.deleteAll()
+                timerController.currentTimeEntry = nil
+                timerController.isRunning = false
+                timerController.elapsedTime = 0
+                timerController.remainingTime = scheduleManager.scheduledSeconds(for: Date())
+                timerController.progress = 0
+            } label: { Text("Delete", bundle: .module) }
         } message: {
-            Text("Esta acción eliminará permanentemente todos los registros de jornada. No se puede deshacer.")
+            Text("This will permanently delete all work records. This action cannot be undone.", bundle: .module)
         }
     }
 }

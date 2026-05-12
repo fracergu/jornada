@@ -1,0 +1,47 @@
+/* Timer */
+"Start" = "Start";
+"Stop" = "Stop";
+"Expected end: %@" = "Expected end: %@";
+"Today's periods" = "Today's periods";
+"No periods" = "No periods";
+"now" = "now";
+"This week" = "This week";
+"of %@" = "of %@";
+"Period editor" = "Period editor";
+
+/* Period Editor */
+"Close" = "Close";
+"today" = "today";
+"Project" = "Project";
+"Start must be before end" = "Start must be before end";
+"Period overlaps with another" = "Period overlaps with another";
+
+/* History */
+"Weekly summary" = "Weekly summary";
+"Worked" = "Worked";
+"Scheduled" = "Scheduled";
+"Difference" = "Difference";
+"Export CSV" = "Export CSV";
+"Import CSV" = "Import CSV";
+"Export" = "Export";
+"Cancel" = "Cancel";
+"From" = "From";
+"To" = "To";
+
+/* Settings */
+"Weekly schedule" = "Weekly schedule";
+"Alerts" = "Alerts";
+"Alert sound" = "Alert sound";
+"Minutes before ending" = "Minutes before ending";
+"%lld min" = "%lld min";
+"min" = "min";
+"Data" = "Data";
+"Delete all data" = "Delete all data";
+"Delete all data?" = "Delete all data?";
+"Delete" = "Delete";
+"This will permanently delete all work records. This action cannot be undone." = "This will permanently delete all work records. This action cannot be undone.";
+
+/* App */
+"Show window" = "Show window";
+"Quit Jornada" = "Quit Jornada";
+"Jornada" = "Jornada";

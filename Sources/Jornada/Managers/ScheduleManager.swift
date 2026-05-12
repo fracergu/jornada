@@ -52,10 +52,10 @@ class ScheduleManager: ObservableObject {
         return (hours, minutes)
     }
 
-    func expectedEndTime(startTime: Date, for date: Date = Date()) -> Date? {
-        let scheduled = scheduledSeconds(for: date)
-        guard scheduled > 0 else { return nil }
-        return startTime.addingTimeInterval(scheduled)
+    func expectedEndTime(elapsed: TimeInterval, for date: Date = Date()) -> Date? {
+        let remaining = scheduledSeconds(for: date) - elapsed
+        guard remaining > 0 else { return nil }
+        return Date().addingTimeInterval(remaining)
     }
 
     var alertThresholdSeconds: TimeInterval {

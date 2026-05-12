@@ -8,12 +8,12 @@ set -e  # Salir si hay errores
 echo "🔨 Compilando Jornada..."
 
 # 1. Build release
-echo "1/5 - Compilando en modo release..."
-cd /Users/fracergu/Repos/time-tracker
+echo "1/6 - Compilando en modo release..."
+cd "$(dirname "$0")"
 swift build -c release
 
 # 2. Generar icono ICNS si existe icon.png
-echo "2/5 - Generando icono..."
+echo "2/6 - Generando icono..."
 if [ -f "icon.png" ]; then
     mkdir -p AppIcon.iconset
     sips -z 16 16 icon.png --out AppIcon.iconset/icon_16x16.png 2>/dev/null
@@ -34,7 +34,7 @@ else
 fi
 
 # 3. Actualizar app bundle
-echo "3/5 - Actualizando app bundle..."
+echo "3/6 - Actualizando app bundle..."
 rm -rf build/Jornada.app
 mkdir -p build/Jornada.app/Contents/MacOS
 mkdir -p build/Jornada.app/Contents/Resources
@@ -47,7 +47,7 @@ if [ -f "AppIcon.icns" ]; then
 fi
 
 # 5. Configurar Info.plist
-echo "4/5 - Configurando Info.plist..."
+echo "4/6 - Configurando Info.plist..."
 cat > build/Jornada.app/Contents/Info.plist << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -68,7 +68,7 @@ cat > build/Jornada.app/Contents/Info.plist << 'EOF'
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>0.1.0</string>
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>LSMinimumSystemVersion</key>
@@ -85,8 +85,18 @@ EOF
 
 echo -n "APPL????" > build/Jornada.app/Contents/PkgInfo
 
+# 5b. Code sign the app bundle
+echo "5/6 - Firmando el bundle..."
+if [ -n "${CODE_SIGN_IDENTITY}" ]; then
+    codesign --deep --force --verify --verbose --sign "${CODE_SIGN_IDENTITY}" --entitlements Sources/Jornada/Jornada.entitlements build/Jornada.app
+else
+    echo "   CODE_SIGN_IDENTITY no configurada, saltando firma"
+    # Aun así, reemplazar con firma ad-hoc para evitar cuarentena
+    codesign --deep --force --verify --verbose --sign - build/Jornada.app
+fi
+
 # 6. Actualizar DMG
-echo "5/5 - Creando DMG..."
+echo "6/6 - Creando DMG..."
 rm -rf build/dmg-root
 mkdir -p build/dmg-root
 cp -R build/Jornada.app build/dmg-root/

@@ -1,7 +1,8 @@
 import SwiftUI
 
 struct TimerView: View {
-    @EnvironmentObject var timerManager: TimerManager
+    @EnvironmentObject var timerController: TimerController
+    @EnvironmentObject var entryEditor: EntryEditor
     @EnvironmentObject var scheduleManager: ScheduleManager
     @State private var showingPeriodEditor = false
 
@@ -9,31 +10,36 @@ struct TimerView: View {
         VStack(spacing: DS.sectionSpacing) {
             Spacer().frame(height: 4)
 
-            Text(formatTime(timerManager.elapsedTime))
+            Text(formatTime(timerController.elapsedTime))
                 .font(.system(size: 40, weight: .light, design: .monospaced))
-                .foregroundStyle(timerManager.isRunning ? .primary : .secondary)
+                .foregroundStyle(timerController.isRunning ? .primary : .secondary)
+                .accessibilityLabel("Tiempo trabajado")
+                .accessibilityValue(formatTime(timerController.elapsedTime))
 
             ZStack {
                 Circle()
                     .stroke(Color.gray.opacity(0.15), lineWidth: 8)
+                    .accessibilityHidden(true)
                 Circle()
-                    .trim(from: 0, to: timerManager.progress)
+                    .trim(from: 0, to: timerController.progress)
                     .stroke(
-                        timerManager.progress >= 1.0 ? Color.green : Color.accentColor,
+                        timerController.progress >= 1.0 ? Color.green : Color.accentColor,
                         style: StrokeStyle(lineWidth: 8, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
-                    .animation(.linear(duration: 1), value: timerManager.progress)
+                    .animation(.linear(duration: 1), value: timerController.progress)
+                    .accessibilityLabel("Progreso de la jornada")
+                    .accessibilityValue("\(Int(timerController.progress * 100))%")
 
                 VStack(spacing: 2) {
-                    Text("\(Int(timerManager.progress * 100))%")
+                    Text("\(Int(timerController.progress * 100))%")
                         .font(.system(size: 17, weight: .semibold, design: .rounded))
-                    if timerManager.remainingTime > 0 {
-                        Text(formatTime(timerManager.remainingTime))
+                    if timerController.remainingTime > 0 {
+                        Text(formatTime(timerController.remainingTime))
                             .font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(.secondary)
-                    } else if timerManager.remainingTime < 0 {
-                        Text("+\(formatTime(abs(timerManager.remainingTime)))")
+                    } else if timerController.remainingTime < 0 {
+                        Text("+\(formatTime(abs(timerController.remainingTime)))")
                             .font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(.red)
                     }
@@ -41,19 +47,18 @@ struct TimerView: View {
             }
             .frame(width: 96, height: 96)
 
-            if let entry = timerManager.currentTimeEntry,
-               let endTime = scheduleManager.expectedEndTime(startTime: entry.startTime) {
+            if let entry = timerController.currentTimeEntry,
+               let endTime = scheduleManager.expectedEndTime(elapsed: entry.totalWorkedSeconds) {
                 HStack(spacing: 4) {
                     Image(systemName: "clock")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
-                    Text("Fin previsto: \(endTime, style: .time)")
+                    Text("Expected end: \(endTime, style: .time)", bundle: .module)
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                 }
             }
 
-            // Action button
             HStack {
                 actionButton
             }
@@ -62,44 +67,46 @@ struct TimerView: View {
             Divider()
                 .padding(.horizontal, DS.hPadding)
 
-            // Today's periods
             todayPeriodsSection
 
             Divider()
                 .padding(.horizontal, DS.hPadding)
 
-            // Week summary
             weekSummarySection
                 .padding(.horizontal, DS.hPadding)
                 .padding(.bottom, 8)
         }
         .sheet(isPresented: $showingPeriodEditor) {
-            PeriodEditorView(timerManager: timerManager)
+            PeriodEditorView()
+                .environmentObject(timerController)
+                .environmentObject(entryEditor)
+                .environmentObject(scheduleManager)
                 .frame(minWidth: 520, minHeight: 440)
         }
     }
 
     @ViewBuilder
     private var actionButton: some View {
-        if timerManager.currentTimeEntry == nil {
-            Button(action: { timerManager.startSession() }) {
-                Label("Iniciar", systemImage: "play.fill")
-                    .frame(maxWidth: .infinity)
+        if timerController.isRunning {
+            Button(action: { timerController.stopSession() }) {
+                Label {
+                    Text("Stop", bundle: .module)
+                } icon: {
+                    Image(systemName: "stop.fill")
+                }
+                .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-        } else if timerManager.isRunning {
-            Button(action: { timerManager.pauseSession() }) {
-                Label("Pausar", systemImage: "pause.fill")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(.orange)
+            .tint(.red)
             .controlSize(.large)
         } else {
-            Button(action: { timerManager.resumeSession() }) {
-                Label("Reanudar", systemImage: "play.fill")
-                    .frame(maxWidth: .infinity)
+            Button(action: { timerController.startSession() }) {
+                Label {
+                    Text("Start", bundle: .module)
+                } icon: {
+                    Image(systemName: "play.fill")
+                }
+                .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
@@ -109,27 +116,27 @@ struct TimerView: View {
     private var todayPeriodsSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                DS.sectionHeader("Periodos de hoy")
+                DS.sectionHeader("Today's periods")
                 Spacer()
                 Button(action: { showingPeriodEditor = true }) {
                     Image(systemName: "rectangle.expand.vertical")
                         .font(.system(size: 11))
                 }
                 .buttonStyle(.borderless)
-                .help("Editor de periodos")
+                .help("Period editor")
             }
 
-            let todayEntry = timerManager.currentTimeEntry ?? StorageService.shared.getEntry(for: Date())
+            let todayEntry = timerController.currentTimeEntry ?? entryForTodayFromRepository()
 
             if let entry = todayEntry, !entry.segments.isEmpty {
                 PeriodTable(
                     segments: entry.segments,
                     entryId: entry.id,
-                    timerManager: timerManager
+                    entryEditor: entryEditor
                 )
             } else {
                 HStack {
-                    DS.sectionHeader("Sin periodos")
+                    DS.sectionHeader("No periods")
                         .foregroundStyle(DS.tertiaryColor)
                     Spacer()
                 }
@@ -140,12 +147,12 @@ struct TimerView: View {
     }
 
     private var weekSummarySection: some View {
-        let weekWorked = timerManager.weekTotalWorked()
-        let weekScheduled = timerManager.weekTotalScheduled()
+        let weekWorked = timerController.weekTotalWorked()
+        let weekScheduled = timerController.weekTotalScheduled()
 
         return HStack {
             VStack(alignment: .leading, spacing: 2) {
-                DS.sectionHeader("Esta semana")
+                DS.sectionHeader("This week")
                 Text(formatTimeShort(weekWorked))
                     .font(.system(size: 14, weight: .medium, design: .monospaced))
             }
@@ -153,7 +160,7 @@ struct TimerView: View {
             if weekScheduled > 0 {
                 let progress = min(weekWorked / weekScheduled, 1.0)
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text("de \(formatTimeShort(weekScheduled))")
+                    Text("of \(formatTimeShort(weekScheduled))", bundle: .module)
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                     ProgressView(value: progress)
@@ -161,6 +168,10 @@ struct TimerView: View {
                 }
             }
         }
+    }
+
+    private func entryForTodayFromRepository() -> TimeEntry? {
+        timerController.repository?.getEntry(for: Date())
     }
 
     private func formatTime(_ interval: TimeInterval) -> String {
@@ -179,12 +190,12 @@ struct TimerView: View {
     }
 }
 
-// MARK: - Period Table (shared between TimerView and PeriodEditorView)
+// MARK: - Period Table
 
 struct PeriodTable: View {
     let segments: [WorkSegment]
     let entryId: UUID
-    @ObservedObject var timerManager: TimerManager
+    let entryEditor: EntryEditor
 
     var body: some View {
         VStack(spacing: 0) {
@@ -192,7 +203,7 @@ struct PeriodTable: View {
                 PeriodRowCompact(
                     segment: segment,
                     entryId: entryId,
-                    timerManager: timerManager
+                    entryEditor: entryEditor
                 )
                 .background(index % 2 == 1 ? Color.primary.opacity(0.03) : Color.clear)
             }
@@ -208,7 +219,7 @@ struct PeriodTable: View {
 struct PeriodRowCompact: View {
     let segment: WorkSegment
     let entryId: UUID
-    @ObservedObject var timerManager: TimerManager
+    let entryEditor: EntryEditor
 
     private func formatDuration(_ duration: TimeInterval) -> String {
         let total = Int(max(0, duration))
@@ -243,7 +254,7 @@ struct PeriodRowCompact: View {
                         .foregroundStyle(.primary)
                         .frame(width: 56)
                 } else {
-                    Text("ahora")
+                    Text("now", bundle: .module)
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(.secondary)
                         .frame(width: 56)
@@ -263,14 +274,16 @@ struct PeriodRowCompact: View {
 
                 Spacer()
 
-                Button(action: {
-                    timerManager.deleteSegmentFromEntry(entryId: entryId, segmentId: segment.id)
-                }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary.opacity(0.4))
+                if segment.isCompleted {
+                    Button(action: {
+                        entryEditor.deleteSegmentFromEntry(entryId: entryId, segmentId: segment.id)
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary.opacity(0.4))
+                    }
+                    .buttonStyle(.borderless)
                 }
-                .buttonStyle(.borderless)
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)

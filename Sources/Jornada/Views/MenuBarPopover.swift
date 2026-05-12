@@ -1,7 +1,8 @@
 import SwiftUI
 
 struct MenuBarPopover: View {
-    @EnvironmentObject var timerManager: TimerManager
+    @EnvironmentObject var timerController: TimerController
+    @EnvironmentObject var entryEditor: EntryEditor
     @EnvironmentObject var scheduleManager: ScheduleManager
     @State private var selectedTab = 0
 
@@ -22,21 +23,23 @@ struct MenuBarPopover: View {
                 switch selectedTab {
                 case 0:
                     TimerView()
-                        .environmentObject(timerManager)
+                        .environmentObject(timerController)
+                        .environmentObject(entryEditor)
                         .environmentObject(scheduleManager)
                 case 1:
                     HistoryView()
-                        .environmentObject(timerManager)
+                        .environmentObject(timerController)
                         .environmentObject(scheduleManager)
                 case 2:
                     SettingsView()
                         .environmentObject(scheduleManager)
-                        .environmentObject(timerManager)
+                        .environmentObject(timerController)
                 default:
                     EmptyView()
                 }
             }
         }
-        .frame(width: 360, height: 500)
+        .frame(width: 360)
+        .frame(minHeight: 400, maxHeight: 600)
     }
 }

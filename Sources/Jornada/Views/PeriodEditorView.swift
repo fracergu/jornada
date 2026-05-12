@@ -1,7 +1,9 @@
 import SwiftUI
 
 struct PeriodEditorView: View {
-    @ObservedObject var timerManager: TimerManager
+    @EnvironmentObject var timerController: TimerController
+    @EnvironmentObject var entryEditor: EntryEditor
+    @EnvironmentObject var scheduleManager: ScheduleManager
     @Environment(\.dismiss) private var dismiss
     @State private var weekOffset: Int = 0
 
@@ -17,11 +19,11 @@ struct PeriodEditorView: View {
     }
 
     private func weekEntries() -> [TimeEntry] {
-        _ = timerManager.revision
-        return StorageService.shared.loadAll().filter { entry in
+        _ = timerController.revision
+        return timerController.repository?.loadAll().filter { entry in
             let entryDay = Calendar.current.startOfDay(for: entry.date)
             return entryDay >= weekStart && entryDay < weekEnd
-        }.sorted { $0.date < $1.date }
+        }.sorted { $0.date < $1.date } ?? []
     }
 
     private var weekDays: [Date] {
@@ -65,7 +67,8 @@ struct PeriodEditorView: View {
                             day: day,
                             entry: entries.first { Calendar.current.isDate($0.date, inSameDayAs: day) },
                             isToday: Calendar.current.isDateInToday(day),
-                            timerManager: timerManager
+                            entryEditor: entryEditor,
+                            timerController: timerController
                         )
                         Divider()
                     }
@@ -76,7 +79,7 @@ struct PeriodEditorView: View {
 
             HStack {
                 Spacer()
-                Button("Cerrar") { dismiss() }
+                Button { dismiss() } label: { Text("Close", bundle: .module) }
                     .keyboardShortcut(.defaultAction)
                     .controlSize(.small)
             }
@@ -87,7 +90,7 @@ struct PeriodEditorView: View {
 
     private var weekRangeLabel: String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "es_ES")
+        formatter.locale = Locale.current
         formatter.dateFormat = "d MMM"
         let start = formatter.string(from: weekStart)
         let end = formatter.string(from: Calendar.current.date(byAdding: .day, value: -1, to: weekEnd) ?? weekEnd)
@@ -101,27 +104,27 @@ private struct EditorDaySection: View {
     let day: Date
     let entry: TimeEntry?
     let isToday: Bool
-    let timerManager: TimerManager
+    let entryEditor: EntryEditor
+    let timerController: TimerController
 
     @State private var showingAddPeriod = false
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "es_ES")
+        f.locale = Locale.current
         f.dateFormat = "EEEE d"
         return f
     }()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Day header
             HStack(spacing: 6) {
                 Text(Self.dateFormatter.string(from: day).capitalized)
                     .font(.system(size: 12, weight: isToday ? .semibold : .medium))
                     .foregroundStyle(isToday ? .primary : .secondary)
 
                 if isToday {
-                    Text("· hoy")
+                    (Text("· ") + Text("today", bundle: .module))
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
@@ -136,7 +139,7 @@ private struct EditorDaySection: View {
                 }
 
                 Button(action: {
-                    if entry == nil { timerManager.addEntryForDate(day) }
+                    if entry == nil { entryEditor.addEntryForDate(day) }
                     showingAddPeriod = true
                 }) {
                     Image(systemName: "plus.circle.fill")
@@ -148,23 +151,21 @@ private struct EditorDaySection: View {
             .padding(.horizontal, DS.hPadding)
             .padding(.vertical, 10)
 
-            // Periods
             if let entry = entry, !entry.segments.isEmpty {
                 VStack(spacing: 1) {
                     ForEach(entry.segments) { segment in
                         EditorPeriodTableRow(
                             entryId: entry.id,
                             segment: segment,
-                            timerManager: timerManager
+                            entryEditor: entryEditor
                         )
                     }
                 }
                 .padding(.bottom, 4)
             } else if showingAddPeriod {
-                // show add row within padding
             } else {
                 HStack {
-                    Text("Sin periodos")
+                    Text("No periods", bundle: .module)
                         .font(.system(size: 12))
                         .foregroundStyle(DS.tertiaryColor)
                     Spacer()
@@ -174,7 +175,7 @@ private struct EditorDaySection: View {
             }
 
             if showingAddPeriod, let entry = entry {
-                EditorAddPeriodRow(entryId: entry.id, timerManager: timerManager, isPresented: $showingAddPeriod)
+                EditorAddPeriodRow(entryId: entry.id, entryEditor: entryEditor, isPresented: $showingAddPeriod)
             }
         }
     }
@@ -191,12 +192,12 @@ private struct EditorPeriodTableRow: View {
     let entryId: UUID
     let segment: WorkSegment
     @State private var projectText: String
-    let timerManager: TimerManager
+    let entryEditor: EntryEditor
 
-    init(entryId: UUID, segment: WorkSegment, timerManager: TimerManager) {
+    init(entryId: UUID, segment: WorkSegment, entryEditor: EntryEditor) {
         self.entryId = entryId
         self.segment = segment
-        self.timerManager = timerManager
+        self.entryEditor = entryEditor
         _projectText = State(initialValue: segment.project)
     }
 
@@ -223,7 +224,7 @@ private struct EditorPeriodTableRow: View {
                 get: { dateFromHourMinute(hour: segment.startHour, minute: segment.startMinute) },
                 set: {
                     let cal = Calendar.current
-                    timerManager.updateSegmentStartForEntry(
+                    entryEditor.updateSegmentStartForEntry(
                         entryId: entryId, segmentId: segment.id,
                         hour: cal.component(.hour, from: $0), minute: cal.component(.minute, from: $0)
                     )
@@ -239,7 +240,7 @@ private struct EditorPeriodTableRow: View {
                     get: { dateFromHourMinute(hour: endH, minute: endM) },
                     set: {
                         let cal = Calendar.current
-                        timerManager.updateSegmentEndForEntry(
+                        entryEditor.updateSegmentEndForEntry(
                             entryId: entryId, segmentId: segment.id,
                             hour: cal.component(.hour, from: $0), minute: cal.component(.minute, from: $0)
                         )
@@ -248,7 +249,7 @@ private struct EditorPeriodTableRow: View {
                 .labelsHidden()
                 .frame(width: 64)
             } else {
-                Text("ahora").font(.system(size: 12, design: .monospaced)).foregroundStyle(.secondary).frame(width: 64)
+                Text("now", bundle: .module).font(.system(size: 12, design: .monospaced)).foregroundStyle(.secondary).frame(width: 64)
             }
 
             Text(formatDuration(segment.duration))
@@ -256,24 +257,26 @@ private struct EditorPeriodTableRow: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 60, alignment: .trailing)
 
-            TextField("Proyecto", text: $projectText)
+            TextField("Project", text: $projectText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .onSubmit {
-                    timerManager.updateSegmentProjectForEntry(entryId: entryId, segmentId: segment.id, project: projectText)
+                    entryEditor.updateSegmentProjectForEntry(entryId: entryId, segmentId: segment.id, project: projectText)
                 }
 
             Spacer()
 
-            Button(action: {
-                timerManager.deleteSegmentFromEntry(entryId: entryId, segmentId: segment.id)
-            }) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary.opacity(0.4))
+            if segment.isCompleted {
+                Button(action: {
+                    entryEditor.deleteSegmentFromEntry(entryId: entryId, segmentId: segment.id)
+                }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary.opacity(0.4))
+                }
+                .buttonStyle(.borderless)
             }
-            .buttonStyle(.borderless)
         }
         .padding(.horizontal, DS.hPadding)
         .padding(.vertical, 5)
@@ -284,7 +287,7 @@ private struct EditorPeriodTableRow: View {
 
 private struct EditorAddPeriodRow: View {
     let entryId: UUID
-    let timerManager: TimerManager
+    let entryEditor: EntryEditor
     @Binding var isPresented: Bool
 
     @State private var startHour = 9
@@ -296,10 +299,12 @@ private struct EditorAddPeriodRow: View {
     private var startMins: Int { startHour * 60 + startMinute }
     private var endMins: Int { endHour * 60 + endMinute }
     private var isValidRange: Bool { endMins > startMins }
+
     private var hasOverlap: Bool {
-        guard let entry = StorageService.shared.loadAll().first(where: { $0.id == entryId }) else { return false }
+        guard let entry = entryEditor.timerController?.repository?.loadAll().first(where: { $0.id == entryId }) else { return false }
         return entry.hasOverlap(startHour: startHour, startMinute: startMinute, endHour: endHour, endMinute: endMinute)
     }
+
     private var canSave: Bool { isValidRange && !hasOverlap }
 
     private func dateFromHourMinute(hour: Int, minute: Int) -> Date {
@@ -335,7 +340,7 @@ private struct EditorAddPeriodRow: View {
                 .labelsHidden()
                 .frame(width: 64)
 
-                TextField("Proyecto", text: $project)
+                TextField("Project", text: $project)
                     .textFieldStyle(.roundedBorder)
                     .font(.system(size: 11))
                     .frame(width: 100)
@@ -343,7 +348,7 @@ private struct EditorAddPeriodRow: View {
                 Spacer()
 
                 Button(action: {
-                    timerManager.addSegmentToEntry(entryId: entryId, startHour: startHour, startMinute: startMinute, endHour: endHour, endMinute: endMinute, project: project)
+                    entryEditor.addSegmentToEntry(entryId: entryId, startHour: startHour, startMinute: startMinute, endHour: endHour, endMinute: endMinute, project: project)
                     isPresented = false
                 }) {
                     Image(systemName: "checkmark.circle.fill")
@@ -364,7 +369,7 @@ private struct EditorAddPeriodRow: View {
             if !isValidRange {
                 HStack {
                     Spacer().frame(width: 13 + 64 + 10 + 64 + 4)
-                    Text("El inicio debe ser anterior al fin")
+                    Text("Start must be before end", bundle: .module)
                         .font(.system(size: 9))
                         .foregroundStyle(.red)
                     Spacer()
@@ -372,7 +377,7 @@ private struct EditorAddPeriodRow: View {
             } else if hasOverlap {
                 HStack {
                     Spacer().frame(width: 13 + 64 + 10 + 64 + 4)
-                    Text("El periodo solapa con otro existente")
+                    Text("Period overlaps with another", bundle: .module)
                         .font(.system(size: 9))
                         .foregroundStyle(.red)
                     Spacer()
